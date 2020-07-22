@@ -10,7 +10,7 @@ pipeline {
     }
     stage('DeployToStaging') {
       when {
-        branch 'master'
+        branch 'without-docker'
       }
       steps {
         withCredentials([usernamePassword(credentialsId: 'deployment_login', usernameVariable: 'USERNAME', passwordVariable: 'USERPASS')]) {
@@ -40,7 +40,7 @@ pipeline {
     }
     stage('DeployToProduction') {
       when {
-        branch 'master'
+        branch 'without-docker'
       }
       steps {
         input 'Does the staging environment look OK?'
