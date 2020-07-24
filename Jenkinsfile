@@ -1,5 +1,9 @@
 pipeline {
   agent any
+  environment {
+    //be sure to replace "willbla" with your own Docker Hub username
+    DOCKER_IMAGE_NAME = "phelucko/train-schedule-kubenetes"
+  }
   stages {
     stage('Build') {
       steps {
@@ -10,20 +14,20 @@ pipeline {
     }
     stage('Build Docker Image') {
       when {
-        branch 'docker'
+        branch 'kubenetes'
       }
       steps {
         script {
-          app = docker.build("phelucko/train-schedule")
+          app = docker.build(DOCKER_IMAGE_NAME)
           app.inside {
-            sh 'echo $(curl localhost:8080)'
+            sh 'echo Hello, World!'
           }
         }
       }
     }
     stage('Push Docker Image') {
       when {
-        branch 'docker'
+        branch 'kubenetes'
       }
       steps {
         script {
@@ -36,23 +40,16 @@ pipeline {
     }
     stage('DeployToProduction') {
       when {
-        branch 'docker'
+        branch 'kubenetes'
       }
       steps {
         input 'Deploy to Production?'
         milestone(1)
-        withCredentials([usernamePassword(credentialsId: 'deployment_login', usernameVariable: 'USERNAME', passwordVariable: 'USERPASS')]) {
-          script {
-            sh "sshpass -p '$USERPASS' -v ssh -o StrictHostKeyChecking=no $USERNAME@$prod_ip \"docker pull phelucko/train-schedule:${env.BUILD_NUMBER}\""
-            try {
-              sh "sshpass -p '$USERPASS' -v ssh -o StrictHostKeyChecking=no $USERNAME@$prod_ip \"docker stop train-schedule\""
-              sh "sshpass -p '$USERPASS' -v ssh -o StrictHostKeyChecking=no $USERNAME@$prod_ip \"docker rm train-schedule\""
-            } catch (err) {
-              echo: 'caught error: $err'
-            }
-            sh "sshpass -p '$USERPASS' -v ssh -o StrictHostKeyChecking=no $USERNAME@$prod_ip \"docker run --restart always --name train-schedule -p 8080:3000 -d phelucko/train-schedule:${env.BUILD_NUMBER}\""
-          }
-        }
+        kubernetesDeploy(
+          kubeconfigId: 'kubeconfig',
+          configs: 'train-schedule-kube.yml',
+          enableConfigSubstitution: true
+        )
       }
     }
   }
